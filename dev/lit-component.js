@@ -4,7 +4,8 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 
-import { LitElement, html, css } from 'lit';
+import {LitElement, html, css} from 'lit';
+import {fetchTableData} from './data-helpers.js';
 
 export class LitComponent extends LitElement {
   static get styles() {
@@ -16,25 +17,30 @@ export class LitComponent extends LitElement {
         max-width: 800px;
         font-family: Calibri;
       }
-      
+
       table {
         border-collapse: collapse;
         width: 100%;
       }
-      
+
       thead {
-        color: darkgray;
+        color: black;
         font-size: 24px;
       }
 
-      th, td {
+      th,
+      td {
         border: 1px solid black;
         padding: 8px;
-        text-align: left;        
+        text-align: left;
       }
-      
+
       th {
         background-color: #f2f2f2;
+      }
+
+      .bg-grey {
+        background-color: lightgrey;
       }
     `;
   }
@@ -45,13 +51,25 @@ export class LitComponent extends LitElement {
        * The number of people in the table.
        * @type {number}
        */
-      count: { type: Number },
+      count: {type: Number},
 
       /**
        * Array of people to show in table
        * @type {Array}
        */
-      people: { type: Array },
+      people: {type: Array},
+
+      /**
+       * String of the search term
+       * @type {String}
+       */
+      searchTerm: {type: String},
+
+      /**
+       * String copy of the search term
+       * @type {String}
+       */
+      inputValue: {type: String},
     };
   }
 
@@ -59,17 +77,64 @@ export class LitComponent extends LitElement {
     super();
     this.count = 0;
     this.people = [];
+    this.searchTerm = '';
+    this.inputValue = '';
   }
 
   _handleSearch(e) {
-    const searchTerm = e.target.value;
-    // fill in rest here to filter items in search
+    e.preventDefault();
+    this.searchTerm = this.inputValue;
+    return this.people;
+  }
+
+  _handleKeyup(e) {
+    if (!e.target.value.trim()) {
+      this.searchTerm = '';
+    }
+  }
+
+  updateInputValue(e) {
+    this.inputValue = e.target.value;
+  }
+
+  get filteredPeople() {
+    if (!this.searchTerm.trim()) {
+      return this.people;
+    }
+    const lowercaseSearchTerm = this.searchTerm.toLowerCase();
+    return this.people.filter((person) =>
+      Object.values(person).some((val) =>
+        String(val).toLowerCase().includes(lowercaseSearchTerm)
+      )
+    );
+  }
+
+  async firstUpdated() {
+    this.people = await fetchTableData();
+    this.count = this.people.length;
+  }
+
+  createARow(person, index) {
+    return html`<tr class="${index % 2 === 0 ? null : 'bg-grey'}">
+      <td>${person.Name}</td>
+      <td>${person.Age}</td>
+      <td>${person.Country}</td>
+    </tr>`;
   }
 
   render() {
     return html`
       <h1>Users table - ${new Date(Date.now()).toUTCString()}</h1>
-      <input type="text" placeholder="Search..." @input="${this._handleSearch}" />
+      <form @submit=${this._handleSearch}>
+        <input
+          type="text"
+          placeholder="Search..."
+          .value="${this.inputValue}"
+          @input="${this.updateInputValue}"
+          @keyup="${this._handleKeyup}"
+        />
+        <button type="submit">Search</button>
+      </form>
       <span>User Count: ${this.count}</span>
       <table>
         <thead>
@@ -80,51 +145,9 @@ export class LitComponent extends LitElement {
           </tr>
         </thead>
         <tbody>
-          <tr>
-            <td>John</td>
-            <td>25</td>
-            <td>USA</td>
-          </tr>
-          <tr>
-            <td>Amy</td>
-            <td>32</td>
-            <td>Canada</td>
-          </tr>
-          <tr>
-            <td>Mark</td>
-            <td>28</td>
-            <td>Australia</td>
-          </tr>
-          <tr>
-            <td>Lisa</td>
-            <td>19</td>
-            <td>UK</td>
-          </tr>
-          <tr>
-            <td>David</td>
-            <td>35</td>
-            <td>Germany</td>
-          </tr>
-          <tr>
-            <td>Sarah</td>
-            <td>30</td>
-            <td>USA</td>
-          </tr>
-          <tr>
-            <td>Michael</td>
-            <td>22</td>
-            <td>Canada</td>
-          </tr>
-          <tr>
-            <td>Emily</td>
-            <td>27</td>
-            <td>Australia</td>
-          </tr>
-          <tr>
-            <td>Thomas</td>
-            <td>24</td>
-            <td>UK</td>
-          </tr>          
+          ${this.filteredPeople.map((person, index) => {
+            return this.createARow(person, index);
+          })}
         </tbody>
       </table>
     `;
